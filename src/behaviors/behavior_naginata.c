@@ -243,8 +243,8 @@ static const naginata_kanamap ngdickana[] = {
     {.shift = NONE      , .douji = B_A|B_Q           , .kana = {LS(N1), NONE, NONE, NONE, NONE, NONE}, .func = nofunc        }, // ！
     {.shift = NONE      , .douji = B_A|B_W           , .kana = {LS(SLASH), NONE, NONE, NONE, NONE, NONE}, .func = nofunc        }, // ？
     {.shift = NONE      , .douji = B_A|B_D           , .kana = {COMMA, NONE, NONE, NONE, NONE, NONE}, .func = nofunc        }, // 、
-    {.shift = NONE      , .douji = B_K|B_U           , .kana = {RBKT, BSLH, LEFT, NONE, NONE, NONE}, .func = nofunc        }, // 「」セット
-    {.shift = NONE      , .douji = B_K|B_O           , .kana = {LS(RBKT), LS(BSLH), LEFT, NONE, NONE, NONE}, .func = nofunc        }, // 『』セット
+    {.shift = NONE      , .douji = B_K|B_U           , .kana = {RBKT, NUHS, LEFT, NONE, NONE, NONE}, .func = nofunc        }, // 「」セット
+    {.shift = NONE      , .douji = B_K|B_O           , .kana = {LS(RBKT), LS(NUHS), LEFT, NONE, NONE, NONE}, .func = nofunc        }, // 『』セット
     {.shift = NONE      , .douji = B_K|B_J           , .kana = {DOT, NONE, NONE, NONE, NONE, NONE}, .func = nofunc        }, // 。
     {.shift = NONE      , .douji = B_K|B_Y           , .kana = {SLASH, NONE, NONE, NONE, NONE, NONE}, .func = nofunc        }, // ・
     {.shift = NONE      , .douji = B_K|B_H           , .kana = {LS(SEMI), NONE, NONE, NONE, NONE, NONE}, .func = nofunc        }, // ：
@@ -467,8 +467,7 @@ static void ng_modifier(void) {
             const char *to = romaji_steps[i].to;
             int to_len = strlen(to);
             int64_t ts = naginata_get_timestamp();
-            // 消すのはローマ字の字数ではなく、かなの字数（通常1字、拗音は2字）。
-            // IMEの未確定画面ではBS1回でかな1字が消えるため。
+            // 未確定のローマ字を消して、変換形を打ち直す
             int kana_count = (last_romaji_len == 3 && cur[1] == 'Y') ? 2 : 1;
             for (int k = 0; k < kana_count; k++) {
                 raise_zmk_keycode_state_changed_from_encoded(BSPC, true, ts);

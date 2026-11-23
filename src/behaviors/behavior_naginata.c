@@ -243,8 +243,8 @@ static const naginata_kanamap ngdickana[] = {
     {.shift = NONE      , .douji = B_A|B_Q           , .kana = {LS(N1), NONE, NONE, NONE, NONE, NONE}, .func = nofunc        }, // ！
     {.shift = NONE      , .douji = B_A|B_W           , .kana = {LS(SLASH), NONE, NONE, NONE, NONE, NONE}, .func = nofunc        }, // ？
     {.shift = NONE      , .douji = B_A|B_D           , .kana = {COMMA, NONE, NONE, NONE, NONE, NONE}, .func = nofunc        }, // 、
-    {.shift = NONE      , .douji = B_K|B_U           , .kana = {LBKT, RBKT, LEFT, NONE, NONE, NONE}, .func = nofunc        }, // 「」セット
-    {.shift = NONE      , .douji = B_K|B_O           , .kana = {LS(LBKT), LS(RBKT), LEFT, NONE, NONE, NONE}, .func = nofunc        }, // 『』セット
+    {.shift = NONE      , .douji = B_K|B_U           , .kana = {RBKT, BSLH, LEFT, NONE, NONE, NONE}, .func = nofunc        }, // 「」セット
+    {.shift = NONE      , .douji = B_K|B_O           , .kana = {LS(RBKT), LS(BSLH), LEFT, NONE, NONE, NONE}, .func = nofunc        }, // 『』セット
     {.shift = NONE      , .douji = B_K|B_J           , .kana = {DOT, NONE, NONE, NONE, NONE, NONE}, .func = nofunc        }, // 。
     {.shift = NONE      , .douji = B_K|B_Y           , .kana = {SLASH, NONE, NONE, NONE, NONE, NONE}, .func = nofunc        }, // ・
     {.shift = NONE      , .douji = B_K|B_H           , .kana = {LS(SEMI), NONE, NONE, NONE, NONE, NONE}, .func = nofunc        }, // ：

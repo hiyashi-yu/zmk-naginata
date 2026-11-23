@@ -467,8 +467,10 @@ static void ng_modifier(void) {
             const char *to = romaji_steps[i].to;
             int to_len = strlen(to);
             int64_t ts = naginata_get_timestamp();
-            // 未確定のローマ字を消して、変換形を打ち直す
-            for (int k = 0; k < last_romaji_len; k++) {
+            // 消すのはローマ字の字数ではなく、かなの字数（通常1字、拗音は2字）。
+            // IMEの未確定画面ではBS1回でかな1字が消えるため。
+            int kana_count = (last_romaji_len == 3 && cur[1] == 'Y') ? 2 : 1;
+            for (int k = 0; k < kana_count; k++) {
                 raise_zmk_keycode_state_changed_from_encoded(BSPC, true, ts);
                 raise_zmk_keycode_state_changed_from_encoded(BSPC, false, ts);
             }
@@ -564,14 +566,15 @@ bool naginata_press(struct zmk_behavior_binding *binding, struct zmk_behavior_bi
         }
 
         // 連続シフト
-        static const uint32_t rs[10][2] = {{D, F},     {C, V}, {J, K}, {M, COMMA}, {SPACE, 0},
-                                     {ENTER, 0}, {F, 0}, {V, 0}, {J, 0},     {M, 0}};
+        static const uint32_t rs[12][2] = {{D, F},     {C, V}, {J, K}, {M, COMMA}, {SPACE, 0},
+                                     {ENTER, 0}, {F, 0}, {V, 0}, {J, 0},     {M, 0},
+                                     {K, 0},     {D, 0}};
 
         uint32_t keyset = 0UL;
         for (int i = 0; i < nginput.elements[nginput.size - 1].size; i++) {
             keyset |= ng_key[nginput.elements[nginput.size - 1].elements[i] - A];
         }
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 12; i++) {
             NGList rskc;
             initializeList(&rskc);
             addToList(&rskc, rs[i][0]);

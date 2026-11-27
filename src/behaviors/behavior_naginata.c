@@ -270,7 +270,7 @@ static const naginata_kanamap ngdickana[] = {
     {.shift = NONE      , .douji = B_Z|B_H           , .kana = {F, O, NONE, NONE, NONE, NONE}, .func = nofunc        }, // ふぉ
     {.shift = NONE      , .douji = B_R|B_O           , .kana = {S, Y, E, NONE, NONE, NONE}, .func = nofunc        }, // しぇ
     {.shift = NONE      , .douji = B_I|B_O           , .kana = {X, Y, O, U, NONE, NONE}, .func = nofunc        }, // ょう
-    {.shift = NONE      , .douji = B_F|B_P           , .kana = {DOT, DOT, DOT, NONE, NONE, NONE}, .func = nofunc        }, // …
+    {.shift = NONE      , .douji = B_F|B_P           , .kana = {Z, DOT, NONE, NONE, NONE, NONE}, .func = nofunc        }, // …（Zコマンド）
     {.shift = NONE      , .douji = B_C|B_COMMA       , .kana = {ENTER, NONE, NONE, NONE, NONE, NONE}, .func = nofunc        }, // Enter（コンボ）
     {.shift = NONE      , .douji = B_V|B_M           , .kana = {TAB, NONE, NONE, NONE, NONE, NONE}, .func = nofunc        }, // Tab（コンボ）
     {.shift = NONE      , .douji = B_A|B_Q           , .kana = {LS(N1), NONE, NONE, NONE, NONE, NONE}, .func = nofunc        }, // ！

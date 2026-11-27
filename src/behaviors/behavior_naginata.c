@@ -70,7 +70,7 @@ static NGListArray nginput;
 static uint32_t pressed_keys = 0UL; // 押しているキーのビットをたてる
 static int8_t n_pressed_keys = 0;   // 押しているキーの数
 static int64_t last_press_timestamp;
-static uint32_t last_pressed_keycode;
+static uint32_t last_pressed_position;
 static bool defer_flush;
 static struct k_work_delayable naginata_flush_work;
 
@@ -113,6 +113,31 @@ static const uint32_t ng_key[] = {
     [Y - A] = B_Y,     [Z - A] = B_Z,         [SEMI - A] = B_SEMI,   [COMMA - A] = B_COMMA,
     [DOT - A] = B_DOT, [SLASH - A] = B_SLASH, [SPACE - A] = B_SPACE, [ENTER - A] = B_SPACE,
 };
+
+// 物理位置 -> 薙刀式グリッドのビット（ビルド#26・方式B：キー識別を位置基準に変更）。
+// fish.keymap の layer_naginata のバインディング並び（pos0-27）に対応する。
+// かな層のキーコードは物理位置と右手側でずれる（例: pos5 は英数BSPC／かなU）ため、
+// キーコードではなく event.position で識別しないと pos5 と pos17 の U が区別できない。
+// &ng の無い位置（親指28-31）は 0（対象外）。
+static const uint32_t ng_pos_bit[32] = {
+    [0] = B_W,  [1] = B_E,  [2] = B_R,  [3] = B_T,
+    [4] = B_Y,  [5] = B_U,  [6] = B_I,  [7] = B_O,
+    [8] = B_Q,  [9] = B_A,  [10] = B_S, [11] = B_D, [12] = B_F, [13] = B_G,
+    [14] = B_H, [15] = B_J, [16] = B_K, [17] = B_L, [18] = B_P, [19] = B_SEMI,
+    [20] = B_Z, [21] = B_X, [22] = B_C, [23] = B_V,
+    [24] = B_M, [25] = B_COMMA, [26] = B_DOT, [27] = B_SLASH,
+    // 28-31: 0
+};
+
+// nginput に積まれる識別子（物理位置。ただし &ng SPACE / &ng ENTER を使う
+// 上流キーマップ互換のフォールバック時のみキーコード）からグリッドビットを得る。
+// 位置は 0-27、SPACE/ENTER のキーコードはそれと重ならない値なので判別できる。
+static uint32_t ng_bit_of(uint32_t id) {
+    if (id < 28) {
+        return ng_pos_bit[id];
+    }
+    return ng_key[id - A]; // SPACE/ENTER フォールバック
+}
 
 #define KANA_MAX_LEN 6
 
@@ -200,7 +225,7 @@ static const naginata_kanamap ngdickana[] = {
     {.shift = NONE      , .douji = B_F|B_O           , .kana = {Z, U, NONE, NONE, NONE, NONE}, .func = nofunc        }, // ず（濁点）
     {.shift = NONE      , .douji = B_F|B_SEMI        , .kana = {B, E, NONE, NONE, NONE, NONE}, .func = nofunc        }, // べ（濁点）
     {.shift = NONE      , .douji = B_F|B_H           , .kana = {D, A, NONE, NONE, NONE, NONE}, .func = nofunc        }, // だ（濁点）
-    {.shift = NONE      , .douji = B_F|B_L           , .kana = {D, U, NONE, NONE, NONE, NONE}, .func = nofunc        }, // づ（濁点）
+    {.shift = NONE      , .douji = B_F|B_I           , .kana = {D, U, NONE, NONE, NONE, NONE}, .func = nofunc        }, // づ（濁点）
     {.shift = NONE      , .douji = B_M|B_C           , .kana = {P, A, NONE, NONE, NONE, NONE}, .func = nofunc        }, // ぱ（半濁点）
     {.shift = NONE      , .douji = B_M|B_X           , .kana = {P, I, NONE, NONE, NONE, NONE}, .func = nofunc        }, // ぴ（半濁点）
     {.shift = NONE      , .douji = B_M|B_Z           , .kana = {P, U, NONE, NONE, NONE, NONE}, .func = nofunc        }, // ぷ（半濁点）
@@ -241,11 +266,13 @@ static const naginata_kanamap ngdickana[] = {
     {.shift = NONE      , .douji = B_Z|B_X|B_I       , .kana = {P, Y, O, NONE, NONE, NONE}, .func = nofunc        }, // ぴょ
     {.shift = NONE      , .douji = B_E|B_R|B_O       , .kana = {Z, Y, E, NONE, NONE, NONE}, .func = nofunc        }, // じぇ
     {.shift = NONE      , .douji = B_T|B_O           , .kana = {T, Y, E, NONE, NONE, NONE}, .func = nofunc        }, // ちぇ
-    {.shift = NONE      , .douji = B_Z|B_H           , .kana = {F, A, NONE, NONE, NONE, NONE}, .func = nofunc        }, // ふぁ
-    {.shift = NONE      , .douji = B_Z|B_COMMA       , .kana = {F, O, NONE, NONE, NONE, NONE}, .func = nofunc        }, // ふぉ
+    {.shift = NONE      , .douji = B_Z|B_Y           , .kana = {F, A, NONE, NONE, NONE, NONE}, .func = nofunc        }, // ふぁ
+    {.shift = NONE      , .douji = B_Z|B_H           , .kana = {F, O, NONE, NONE, NONE, NONE}, .func = nofunc        }, // ふぉ
     {.shift = NONE      , .douji = B_R|B_O           , .kana = {S, Y, E, NONE, NONE, NONE}, .func = nofunc        }, // しぇ
     {.shift = NONE      , .douji = B_I|B_O           , .kana = {X, Y, O, U, NONE, NONE}, .func = nofunc        }, // ょう
-    {.shift = NONE      , .douji = B_U|B_L           , .kana = {X, Y, U, U, NONE, NONE}, .func = nofunc        }, // ゅう
+    {.shift = NONE      , .douji = B_F|B_P           , .kana = {DOT, DOT, DOT, NONE, NONE, NONE}, .func = nofunc        }, // …
+    {.shift = NONE      , .douji = B_C|B_COMMA       , .kana = {ENTER, NONE, NONE, NONE, NONE, NONE}, .func = nofunc        }, // Enter（コンボ）
+    {.shift = NONE      , .douji = B_V|B_M           , .kana = {TAB, NONE, NONE, NONE, NONE, NONE}, .func = nofunc        }, // Tab（コンボ）
     {.shift = NONE      , .douji = B_A|B_Q           , .kana = {LS(N1), NONE, NONE, NONE, NONE, NONE}, .func = nofunc        }, // ！
     {.shift = NONE      , .douji = B_A|B_W           , .kana = {LS(SLASH), NONE, NONE, NONE, NONE, NONE}, .func = nofunc        }, // ？
     {.shift = NONE      , .douji = B_S|B_D           , .kana = {COMMA, NONE, NONE, NONE, NONE, NONE}, .func = nofunc        }, // 、
@@ -269,16 +296,16 @@ static int count_kana_entries(NGList *keys, bool exact_match) {
   // keysetを配列にしたらバイナリサイズが増えた
   switch (keys->size) {
     case 1:
-      keyset0 = ng_key[keys->elements[0] - A];
+      keyset0 = ng_bit_of(keys->elements[0]);
       break;
     case 2:
-      keyset0 = ng_key[keys->elements[0] - A];
-      keyset1 = ng_key[keys->elements[1] - A];
+      keyset0 = ng_bit_of(keys->elements[0]);
+      keyset1 = ng_bit_of(keys->elements[1]);
       break;
     default:
-      keyset0 = ng_key[keys->elements[0] - A];
-      keyset1 = ng_key[keys->elements[1] - A];
-      keyset2 = ng_key[keys->elements[2] - A];
+      keyset0 = ng_bit_of(keys->elements[0]);
+      keyset1 = ng_bit_of(keys->elements[1]);
+      keyset2 = ng_bit_of(keys->elements[2]);
       break;
   }
 
@@ -358,7 +385,7 @@ void ng_type(NGList *keys) {
 
     uint32_t keyset = 0UL;
     for (int i = 0; i < keys->size; i++) {
-        keyset |= ng_key[keys->elements[i] - A];
+        keyset |= ng_bit_of(keys->elements[i]);
     }
 
     for (int i = 0; i < sizeof ngdickana / sizeof ngdickana[0]; i++) {
@@ -522,21 +549,34 @@ static void push_input(NGList *e) {
 }
 
 // 薙刀式の入力処理
+// ビルド#26・方式B：キーの識別はキーコードではなく物理位置（event.position）で行う。
+// 位置が ng_pos_bit に無いキー（親指など）は、&ng SPACE / &ng ENTER の
+// 上流キーマップ互換のためだけキーコードで受け付ける（fish では未使用）。
+static bool naginata_identify(struct zmk_behavior_binding *binding,
+                              struct zmk_behavior_binding_event event, uint32_t *id_out) {
+    if (event.position < 32 && ng_pos_bit[event.position] != 0) {
+        *id_out = event.position;
+        return true;
+    }
+    if (binding->param1 == SPACE || binding->param1 == ENTER) {
+        *id_out = binding->param1;
+        return true;
+    }
+    return false;
+}
+
 bool naginata_press(struct zmk_behavior_binding *binding, struct zmk_behavior_binding_event event) {
     LOG_DBG(">NAGINATA PRESS");
 
-    uint32_t keycode = binding->param1;
+    uint32_t keycode;
+    if (!naginata_identify(binding, event, &keycode)) {
+        LOG_DBG("<NAGINATA PRESS (ignored)");
+        return true;
+    }
 
-    switch (keycode) {
-    case A ... Z:
-    case SPACE:
-    case ENTER:
-    case DOT:
-    case COMMA:
-    case SLASH:
-    case SEMI:
+    {
         n_pressed_keys++;
-        pressed_keys |= ng_key[keycode - A]; // キーの重ね合わせ
+        pressed_keys |= ng_bit_of(keycode); // キーの重ね合わせ
 
         if (keycode == SPACE || keycode == ENTER) {
             NGList a;
@@ -544,7 +584,7 @@ bool naginata_press(struct zmk_behavior_binding *binding, struct zmk_behavior_bi
             addToList(&a, keycode);
             push_input(&a);
         } else {
-            last_pressed_keycode = keycode;
+            last_pressed_position = keycode;
             last_press_timestamp = event.timestamp;
             NGList a;
             NGList b;
@@ -570,14 +610,15 @@ bool naginata_press(struct zmk_behavior_binding *binding, struct zmk_behavior_bi
             }
         }
 
-        // 連続シフト
-        static const uint32_t rs[12][2] = {{D, F},     {C, V}, {J, K}, {M, COMMA}, {SPACE, 0},
-                                     {ENTER, 0}, {F, 0}, {V, 0}, {J, 0},     {M, 0},
-                                     {K, 0},     {D, 0}};
+        // 連続シフト（位置対。D=11,F=12 / C=22,V=23 / J=15,K=16 / M=24,COMMA=25。
+        // SPACE/ENTER はフォールバック識別子のまま）
+        static const uint32_t rs[12][2] = {{11, 12},   {22, 23}, {15, 16}, {24, 25}, {SPACE, 0},
+                                           {ENTER, 0}, {12, 0},  {23, 0},  {15, 0},  {24, 0},
+                                           {16, 0},    {11, 0}};
 
         uint32_t keyset = 0UL;
         for (int i = 0; i < nginput.elements[nginput.size - 1].size; i++) {
-            keyset |= ng_key[nginput.elements[nginput.size - 1].elements[i] - A];
+            keyset |= ng_bit_of(nginput.elements[nginput.size - 1].elements[i]);
         }
         for (int i = 0; i < 12; i++) {
             NGList rskc;
@@ -590,7 +631,7 @@ bool naginata_press(struct zmk_behavior_binding *binding, struct zmk_behavior_bi
             int c = includeList(&rskc, keycode);
             uint32_t brs = 0UL;
             for (int j = 0; j < rskc.size; j++) {
-                brs |= ng_key[rskc.elements[j] - A];
+                brs |= ng_bit_of(rskc.elements[j]);
             }
 
             NGList l = nginput.elements[nginput.size - 1];
@@ -635,7 +676,6 @@ bool naginata_press(struct zmk_behavior_binding *binding, struct zmk_behavior_bi
                 removeFromListArrayAt(&nginput, 0);
             }
         }
-        break;
     }
 
     LOG_DBG("<NAGINATA PRESS");
@@ -647,29 +687,26 @@ bool naginata_release(struct zmk_behavior_binding *binding,
                       struct zmk_behavior_binding_event event) {
     LOG_DBG(">NAGINATA RELEASE");
 
-    uint32_t keycode = binding->param1;
+    uint32_t keycode;
+    if (!naginata_identify(binding, event, &keycode)) {
+        LOG_DBG("<NAGINATA RELEASE (ignored)");
+        return true;
+    }
 
-    switch (keycode) {
-    case A ... Z:
-    case SPACE:
-    case ENTER:
-    case DOT:
-    case COMMA:
-    case SLASH:
-    case SEMI:
+    {
         // 先に押していた文字キーが、後から押した文字キーとの重なり時間
         // 未満で離された場合、同時押しではなく個別打鍵として分割する。
         if (CONFIG_NAGINATA_MIN_OVERLAP_MS > 0 && nginput.size > 0 &&
             keycode != SPACE && keycode != ENTER) {
             NGList *last = &(nginput.elements[nginput.size - 1]);
-            if (last->size >= 2 && keycode != last_pressed_keycode &&
-                last->elements[last->size - 1] == last_pressed_keycode &&
+            if (last->size >= 2 && keycode != last_pressed_position &&
+                last->elements[last->size - 1] == last_pressed_position &&
                 includeList(last, keycode) >= 0 &&
                 event.timestamp - last_press_timestamp < CONFIG_NAGINATA_MIN_OVERLAP_MS) {
                 last->size--;
                 NGList e;
                 initializeList(&e);
-                addToList(&e, last_pressed_keycode);
+                addToList(&e, last_pressed_position);
                 push_input(&e);
                 defer_flush = false;
                 k_work_cancel_delayable(&naginata_flush_work);
@@ -687,7 +724,7 @@ bool naginata_release(struct zmk_behavior_binding *binding,
         if (n_pressed_keys == 0)
             pressed_keys = 0UL;
 
-        pressed_keys &= ~ng_key[keycode - A]; // キーの重ね合わせ
+        pressed_keys &= ~ng_bit_of(keycode); // キーの重ね合わせ
 
         if (pressed_keys == 0UL) {
             defer_flush = false;
@@ -704,7 +741,6 @@ bool naginata_release(struct zmk_behavior_binding *binding,
                 removeFromListArrayAt(&nginput, 0);
             }
         }
-        break;
     }
 
     LOG_DBG("<NAGINATA RELEASE");
@@ -721,7 +757,7 @@ static int behavior_naginata_init(const struct device *dev) {
     pressed_keys = 0UL;
     n_pressed_keys = 0;
     last_press_timestamp = 0;
-    last_pressed_keycode = 0;
+    last_pressed_position = 0;
     defer_flush = false;
     k_work_init_delayable(&naginata_flush_work, naginata_flush_work_handler);
 #if defined(CONFIG_NAGINATA_DEFAULT_OS_WINDOWS)
